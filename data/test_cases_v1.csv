@@ -1,0 +1,26 @@
+id,alert_text,expected_category
+v1-001,"PagerDuty: prod-postgres-1 unreachable for 3 minutes. Connection pool exhausted on orders-svc.",infra
+v1-002,"5xx error rate on /api/checkout is 12% over the last 10m. Stack traces point to a NullPointerException in PaymentResolver.",app
+v1-003,"GitGuardian alert: AWS access key AKIA*** committed to public repo akhilg-9/sandbox.",security
+v1-004,"Airflow DAG nightly_user_metrics failed at 02:14 UTC. dbt test unique_users_user_id failed with 12 duplicates.",data
+v1-005,"k8s node ip-10-0-3-44 condition MemoryPressure=True. 8 pods evicted in the last 5 minutes.",infra
+v1-006,"User reports the dashboard for revenue_today is showing yesterday's value. Freshness contract is 15 minutes.",data
+v1-007,"Auth logs: user adam@acme.com signed in from Lagos and Berlin within 6 minutes. MFA approved both times.",security
+v1-008,"p99 latency on the search endpoint jumped from 180ms to 1.4s starting 09:32. No deploy in the last hour.",app
+v1-009,"CoreDNS pods in kube-system are CrashLoopBackOff. Service-to-service calls failing cluster-wide.",infra
+v1-010,"Brute-force attempt detected: 2,400 failed logins against admin@acme.com from a single ASN in 4 minutes.",security
+v1-011,"Kafka consumer-lag on topic events.user.* exceeds 9 million messages. Downstream warehouse tables are stale.",data
+v1-012,"Customer support ticket: 'Got a 502 trying to upload a profile photo, retried 3 times same result.'",app
+v1-013,"EBS volume on prod-mysql-2 at 96% capacity. Filling at ~2GB/min.",infra
+v1-014,"OpenAI billing alert: spend in the last hour is 7x the trailing 24h average. Investigate possible abuse.",security
+v1-015,"Web vitals: LCP regressed from 1.8s to 3.4s on the marketing homepage following the 14:00 deploy.",app
+v1-016,"Snowflake warehouse PROD_XL is queueing >40 queries with avg wait of 8 minutes.",data
+v1-017,"Pen-test report: SQL injection possible on the /admin/search endpoint via the q parameter.",security
+v1-018,"app-svc pods restarting every ~6 minutes with OOMKilled status. Memory limit is 512Mi.",app
+v1-019,"Cluster autoscaler is failing to add new nodes; error: ""Insufficient capacity in zone us-east-1a"".",infra
+v1-020,"CDC pipeline from prod-postgres to BigQuery has been frozen for 2 hours; replication slot bytes growing rapidly.",data
+v1-021,"Vulnerability scanner: log4j 2.14.1 (CVE-2021-44228) detected in legacy-batch image.",security
+v1-022,"Mobile app crash rate jumped to 1.4% (baseline 0.2%) on Android 14 after the 4.12.0 rollout.",app
+v1-023,"Redis instance prod-cache-2 OOM-killed and restarted; hit rate has dropped from 94% to 31%.",infra
+v1-024,"dbt build failed: model fct_orders has a freshness test failure - last_loaded_at is 3 hours old.",data
+v1-025,"Sentry: spike in JS errors 'TypeError: Cannot read properties of undefined (reading map)' on /products page.",app

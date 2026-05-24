@@ -1,0 +1,16 @@
+id,alert_text,expected_category,expected_runbook
+v2-001,"prod-postgres-1 is not accepting connections. Replicas are healthy but writes are failing across the platform.",infra,rb_001_postgres_primary_down
+v2-002,"k8s nodes in pool app-pool are showing MemoryPressure=True and have evicted 15 pods in the last 10 minutes.",infra,rb_002_kubernetes_node_pressure
+v2-003,"p99 latency on /api/search has spiked to 4x baseline for 8 minutes. No deploy correlation visible.",app,rb_003_api_p99_latency_spike
+v2-004,"5xx rate on the public API is 7%; top stack trace is from PaymentService.process throwing NullPointerException.",app,rb_004_5xx_error_surge
+v2-005,"GitHub secret-scanning alert: a Stripe live secret key was committed to a public repo 4 minutes ago.",security,rb_005_leaked_credentials
+v2-006,"SSO log shows user maya@corp signed in from two countries 12 minutes apart, both MFA-approved.",security,rb_006_suspicious_login_pattern
+v2-007,"The nightly user-engagement Airflow DAG failed; the dbt test for unique customer_id reported 47 duplicates.",data,rb_007_etl_pipeline_failure
+v2-008,"Dashboard 'revenue_today' is showing yesterday's value; its freshness SLA is 15 minutes and max(updated_at) is 4 hours stale.",data,rb_008_data_freshness_breach
+v2-009,"EBS volume mounted on prod-app-12 is at 97%; filling at ~3 GB/min from application logs.",infra,rb_009_disk_full
+v2-010,"CoreDNS pods are restarting repeatedly; service-to-service traffic cluster-wide is intermittently failing DNS.",infra,rb_010_dns_resolution_failure
+v2-011,"Writes against the primary order database are timing out. Read replicas remain available.",infra,rb_001_postgres_primary_down
+v2-012,"OOMKilled events have spiked on the checkout deployment; node memory utilization is at 94%.",infra,rb_002_kubernetes_node_pressure
+v2-013,"Tail latency on the inventory API has been climbing for 30 minutes; trace breakdown points to Postgres query times.",app,rb_003_api_p99_latency_spike
+v2-014,"Error budget for the auth service has burned 40% in the last hour; 502s from the upstream identity provider.",app,rb_004_5xx_error_surge
+v2-015,"AWS access key found in a public Docker image layer pushed to Docker Hub by an employee account.",security,rb_005_leaked_credentials
