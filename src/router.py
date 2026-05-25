@@ -13,6 +13,8 @@ from typing import Optional
 
 from openai import OpenAI
 
+from .config import PromptConfig, load_prompt_config
+
 
 class IncidentCategory(str, Enum):
     INFRA = "infra"
@@ -42,35 +44,6 @@ CATEGORY_DEFINITIONS = {
 }
 
 
-SYSTEM_PROMPT_V1_BASELINE = """You are a DevOps incident router. You receive a single alert and respond with the single most appropriate category.
-
-Categories:
-- infra
-- app
-- security
-- data
-
-Respond as JSON with one key, "category", whose value is one of the four strings above. Output nothing else."""
-
-
-SYSTEM_PROMPT_V1_IMPROVED = """You are a senior on-call engineer triaging an incoming alert. You classify each alert into exactly one of four categories.
-
-Category definitions:
-- infra: compute nodes, kubernetes, networking/DNS, storage volumes, load balancers, cloud-provider outages, primary database availability problems (the DB itself is down, not its data).
-- app: code-level bugs, HTTP 5xx surges, latency regressions, deploy regressions, application-pod OOMKilled, frontend / mobile crashes.
-- security: leaked credentials, suspicious or impossible-travel logins, account takeover, CVEs, abuse, pen-test findings, anomalous spend suggesting compromise.
-- data: ETL / DAG failures, dbt test failures, data freshness SLA breaches, warehouse query queues, CDC replication lag, schema drift.
-
-Disambiguation rules — apply in order:
-1. If the alert mentions credentials, secrets, suspicious auth, or abuse → security.
-2. If the alert is about data correctness, freshness, dbt, ETL, CDC, warehouse → data, even if it manifests on infrastructure.
-3. If the database server itself is unreachable / down → infra. If the *data inside* the database is wrong or stale → data.
-4. If the alert is an HTTP-layer symptom (5xx, p99) without an underlying infra cause → app.
-5. Otherwise → infra.
-
-Respond as compact JSON: {"category": "<one of: infra, app, security, data>", "rationale": "<one short sentence>"}. Output nothing else."""
-
-
 @dataclass
 class RouterResult:
     category: IncidentCategory
@@ -79,21 +52,24 @@ class RouterResult:
 
 
 class RouterAgent:
+    """V1 — single LLM classification call. Prompts come from prompts/v*.yaml."""
+
     def __init__(
         self,
         client: Optional[OpenAI] = None,
+        prompt_config: Optional[PromptConfig] = None,
+        prompt_version: Optional[str] = None,
         model: Optional[str] = None,
-        prompt_version: str = "improved",
     ):
+        self.prompt_config = prompt_config or load_prompt_config()
+        # Allow back-compat A/B override: caller can pass "baseline" or "improved"
+        # to swap which prompt body inside the same config version they're using.
+        if prompt_version in {"baseline", "improved"}:
+            self.prompt_config.router.prompt_version = prompt_version  # type: ignore[assignment]
+        self.prompt_version = self.prompt_config.router.prompt_version
         self.client = client or OpenAI()
-        self.model = model or os.environ.get("ROUTER_MODEL", "gpt-4o-mini")
-        if prompt_version == "baseline":
-            self.system_prompt = SYSTEM_PROMPT_V1_BASELINE
-        elif prompt_version == "improved":
-            self.system_prompt = SYSTEM_PROMPT_V1_IMPROVED
-        else:
-            raise ValueError(f"unknown prompt_version: {prompt_version}")
-        self.prompt_version = prompt_version
+        self.model = model or self.prompt_config.router_model()
+        self.system_prompt = self.prompt_config.router.system
 
     def route(self, alert_text: str) -> RouterResult:
         response = self.client.chat.completions.create(
@@ -102,16 +78,18 @@ class RouterAgent:
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": alert_text},
             ],
-            temperature=0,
+            temperature=self.prompt_config.model.temperature,
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content or ""
         try:
             parsed = json.loads(raw)
             category_str = str(parsed.get("category", "")).strip().lower()
-            category = IncidentCategory(category_str) if category_str in {
-                c.value for c in IncidentCategory
-            } else IncidentCategory.UNKNOWN
+            category = (
+                IncidentCategory(category_str)
+                if category_str in {c.value for c in IncidentCategory}
+                else IncidentCategory.UNKNOWN
+            )
             rationale = parsed.get("rationale")
         except (json.JSONDecodeError, ValueError):
             category = IncidentCategory.UNKNOWN

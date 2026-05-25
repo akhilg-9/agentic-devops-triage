@@ -19,30 +19,10 @@ from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
+from .config import PromptConfig, load_prompt_config
 from .retrieval import RunbookIndex
 from .router import IncidentCategory
 from .tools import MockDevOpsEnv, ToolCall, dispatch_tool_call, tool_schemas
-
-
-SYSTEM_PROMPT_V3 = """You are an autonomous on-call SRE triaging an incoming incident.
-
-You have read-only tools to investigate the environment and a runbook library. You also have one terminal tool, `propose_plan`, that you call once you have enough information to recommend a response.
-
-Approach:
-1. Start by reading the alert carefully. Identify which service, deployment, or system is involved, and form an initial hypothesis.
-2. Confirm or refute that hypothesis with 1-4 tool calls. Examples:
-   - Was there a recent deploy? → get_recent_deploys
-   - Are pods healthy? → check_pod_status
-   - Is the metric actually elevated? → get_metric
-   - What do recent error logs look like? → query_logs (severity="error")
-   - What does the runbook library say? → search_runbooks
-3. Once you understand the incident, call `propose_plan` exactly once. Ground the steps in a runbook you retrieved when possible. Do NOT call any further tools after `propose_plan`.
-
-Rules:
-- Be economical with tool calls. Do not call the same tool with the same arguments twice.
-- If a tool result contradicts your hypothesis, update it; do not just keep digging.
-- Total tool calls (including propose_plan) must be at most 6.
-- Each step in `propose_plan` must be imperative and concrete enough that an on-call engineer can execute it without a follow-up question."""
 
 
 @dataclass
@@ -71,22 +51,25 @@ class ReactAgent:
         self,
         index: RunbookIndex,
         client: Optional[OpenAI] = None,
+        prompt_config: Optional[PromptConfig] = None,
         model: Optional[str] = None,
-        max_iterations: int = 6,
+        max_iterations: Optional[int] = None,
     ):
         self.index = index
+        self.prompt_config = prompt_config or load_prompt_config()
         self.client = client or OpenAI()
-        self.model = model or os.environ.get("AGENT_MODEL", os.environ.get("PLANNER_MODEL", "gpt-4o-mini"))
-        self.max_iterations = max_iterations
+        self.model = model or self.prompt_config.agent_model()
+        self.system_prompt = self.prompt_config.agent.system
+        self.max_iterations = max_iterations or self.prompt_config.agent.max_iterations
 
     @staticmethod
     def _signature(alert_text: str) -> str:
         return hashlib.sha256(alert_text.encode()).hexdigest()[:16]
 
     def run(self, alert_text: str) -> AgentRun:
-        env = MockDevOpsEnv(alert_signature=self._signature(alert_text))
+        env = MockDevOpsEnv(alert_text=alert_text)
         messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": SYSTEM_PROMPT_V3},
+            {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": f"ALERT:\n{alert_text}"},
         ]
         tools = tool_schemas()

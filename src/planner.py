@@ -6,57 +6,14 @@ Composes V1 routing with BM25 runbook retrieval to generate a structured respons
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 from openai import OpenAI
 
+from .config import PromptConfig, load_prompt_config
 from .retrieval import RetrievalHit, RunbookIndex
 from .router import IncidentCategory, RouterAgent
-
-
-SYSTEM_PROMPT_V2_BASELINE = """You are a DevOps incident planner. Given an alert and a set of candidate runbooks, produce a step-by-step response plan as JSON.
-
-Output schema:
-{
-  "category": "<infra | app | security | data>",
-  "primary_runbook": "<runbook_id of the best-matching runbook, or null if none apply>",
-  "steps": [
-    {"step": "<imperative action>", "why": "<one sentence>"}
-  ]
-}
-
-Output nothing else."""
-
-
-SYSTEM_PROMPT_V2_IMPROVED = """You are a senior on-call engineer producing a response plan for an incoming incident.
-
-You receive:
-1. The alert text.
-2. The category that V1 routing assigned (treat as a strong prior, not absolute).
-3. The top-K candidate runbooks retrieved by BM25, each with its id, title, and full body.
-
-Your job:
-- Pick the single most applicable runbook. If none truly apply, set "primary_runbook" to null and write generic-but-safe steps.
-- Produce 3 to 7 concrete, ordered steps. Each step must be:
-  * imperative ("Verify ...", "Roll back ...", "Open ..."),
-  * specific enough that another engineer could execute it without asking follow-up questions,
-  * grounded in the chosen runbook when possible — do not invent procedures the runbook does not describe.
-- For each step, include a short "why" so the on-call understands intent.
-- Order steps so that triage / read-only confirmation comes before mitigation, and mitigation before validation.
-- Do not include post-incident review steps unless the alert is already mitigated.
-
-Output schema:
-{
-  "category": "<infra | app | security | data>",
-  "primary_runbook": "<runbook_id or null>",
-  "steps": [
-    {"step": "<imperative action>", "why": "<one sentence>"}
-  ]
-}
-
-Output compact JSON only — no prose, no markdown."""
 
 
 @dataclass
@@ -80,22 +37,20 @@ class PlannerAgent:
         router: RouterAgent,
         index: RunbookIndex,
         client: Optional[OpenAI] = None,
+        prompt_config: Optional[PromptConfig] = None,
+        prompt_version: Optional[str] = None,
         model: Optional[str] = None,
-        prompt_version: str = "improved",
-        top_k: int = 3,
     ):
         self.router = router
         self.index = index
+        self.prompt_config = prompt_config or load_prompt_config()
+        if prompt_version in {"baseline", "improved"}:
+            self.prompt_config.planner.prompt_version = prompt_version  # type: ignore[assignment]
+        self.prompt_version = self.prompt_config.planner.prompt_version
         self.client = client or OpenAI()
-        self.model = model or os.environ.get("PLANNER_MODEL", "gpt-4o-mini")
-        if prompt_version == "baseline":
-            self.system_prompt = SYSTEM_PROMPT_V2_BASELINE
-        elif prompt_version == "improved":
-            self.system_prompt = SYSTEM_PROMPT_V2_IMPROVED
-        else:
-            raise ValueError(f"unknown prompt_version: {prompt_version}")
-        self.prompt_version = prompt_version
-        self.top_k = top_k
+        self.model = model or self.prompt_config.planner_model()
+        self.system_prompt = self.prompt_config.planner.system
+        self.top_k = self.prompt_config.retrieval.top_k
 
     def _format_candidates(self, hits: List[RetrievalHit]) -> str:
         lines = []
@@ -126,7 +81,7 @@ class PlannerAgent:
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": user_content},
             ],
-            temperature=0,
+            temperature=self.prompt_config.model.temperature,
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content or ""
