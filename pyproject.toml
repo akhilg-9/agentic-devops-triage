@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-devops-triage"
+version = "0.2.0"
+description = "Three-tier autonomy-ladder demo: router → planner → ReAct agent for DevOps incident triage."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Akhil Gorantala", email = "akhilgorantala1@gmail.com" }]
+license = { text = "MIT" }
+dependencies = [
+    "openai>=1.40.0",
+    "pandas>=2.0.0",
+    "rank-bm25>=0.2.2",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.65.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+ui = ["streamlit>=1.36.0"]
+notebooks = ["jupyter>=1.0.0", "matplotlib>=3.7.0"]
+dev = ["pytest>=7.0.0"]
+
+[project.scripts]
+triage = "src.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
