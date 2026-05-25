@@ -161,6 +161,7 @@ class PlannerEvalResult:
     routing_accuracy: float
     recall_at_1: float
     recall_at_k: float
+    refusal_accuracy: float
     avg_groundedness: float
     avg_completeness: float
     avg_actionability: float
@@ -194,13 +195,25 @@ def evaluate_planner(
     for row in iterator:
         plan = planner.plan(row.alert_text)
 
-        in_top_1 = retrieval_recall_at_k(plan, row.expected_runbook, k=1)
-        in_top_k = retrieval_recall_at_k(plan, row.expected_runbook)
+        expected_runbook = (str(row.expected_runbook) if row.expected_runbook is not None else "").strip()
+        if expected_runbook.lower() in {"", "nan", "none"}:
+            expected_runbook = ""
+        is_refusal = expected_runbook == ""
+
+        if is_refusal:
+            in_top_1 = None
+            in_top_k = None
+            # "Correct refusal" = planner correctly returned a null primary_runbook.
+            refusal_correct = plan.primary_runbook is None
+        else:
+            in_top_1 = retrieval_recall_at_k(plan, expected_runbook, k=1)
+            in_top_k = retrieval_recall_at_k(plan, expected_runbook)
+            refusal_correct = None
         category_correct = plan.category.value == row.expected_category
 
         judgement = None
-        if judge:
-            expected_text = runbook_by_id.get(row.expected_runbook)
+        if judge and not is_refusal:
+            expected_text = runbook_by_id.get(expected_runbook)
             if expected_text is not None:
                 judgement = judge_plan(
                     plan,
@@ -216,8 +229,10 @@ def evaluate_planner(
                 "expected_category": row.expected_category,
                 "predicted_category": plan.category.value,
                 "category_correct": category_correct,
-                "expected_runbook": row.expected_runbook,
+                "expected_runbook": expected_runbook,
                 "primary_runbook": plan.primary_runbook,
+                "is_refusal": is_refusal,
+                "refusal_correct": refusal_correct,
                 "in_top_1": in_top_1,
                 "in_top_k": in_top_k,
                 "num_steps": len(plan.steps),
@@ -231,13 +246,16 @@ def evaluate_planner(
     predictions = pd.DataFrame(rows)
 
     routing_accuracy = float(predictions["category_correct"].mean()) if len(predictions) else 0.0
-    recall_at_1 = float(predictions["in_top_1"].mean()) if len(predictions) else 0.0
-    recall_at_k = float(predictions["in_top_k"].mean()) if len(predictions) else 0.0
+    non_refusal = predictions[~predictions["is_refusal"]] if len(predictions) else predictions
+    recall_at_1 = float(non_refusal["in_top_1"].mean()) if len(non_refusal) else 0.0
+    recall_at_k = float(non_refusal["in_top_k"].mean()) if len(non_refusal) else 0.0
+    refusal_rows = predictions[predictions["is_refusal"]] if len(predictions) else predictions
+    refusal_accuracy = float(refusal_rows["refusal_correct"].mean()) if len(refusal_rows) else 0.0
 
     if judge and "groundedness" in predictions and predictions["groundedness"].notna().any():
-        avg_grounded = float(predictions["groundedness"].mean())
-        avg_complete = float(predictions["completeness"].mean())
-        avg_action = float(predictions["actionability"].mean())
+        avg_grounded = float(predictions["groundedness"].dropna().mean())
+        avg_complete = float(predictions["completeness"].dropna().mean())
+        avg_action = float(predictions["actionability"].dropna().mean())
     else:
         avg_grounded = avg_complete = avg_action = 0.0
 
@@ -245,6 +263,7 @@ def evaluate_planner(
         routing_accuracy=routing_accuracy,
         recall_at_1=recall_at_1,
         recall_at_k=recall_at_k,
+        refusal_accuracy=refusal_accuracy,
         avg_groundedness=avg_grounded,
         avg_completeness=avg_complete,
         avg_actionability=avg_action,

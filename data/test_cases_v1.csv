@@ -24,3 +24,8 @@ v1-022,"Mobile app crash rate jumped to 1.4% (baseline 0.2%) on Android 14 after
 v1-023,"Redis instance prod-cache-2 OOM-killed and restarted; hit rate has dropped from 94% to 31%.",infra
 v1-024,"dbt build failed: model fct_orders has a freshness test failure - last_loaded_at is 3 hours old.",data
 v1-025,"Sentry: spike in JS errors 'TypeError: Cannot read properties of undefined (reading map)' on /products page.",app
+v1-026,"Third-party payments provider Stripe is reporting elevated 5xx; our /api/charge calls are failing because of them. No internal change.",app
+v1-027,"Confluence vendor outage acknowledged on their status page. Our team's docs are unreachable. Internal services unaffected.",infra
+v1-028,"Suspicious upload of a 4.2GB archive from an internal jump host to a personal Dropbox account at 03:14 UTC.",security
+v1-029,"Datadog Synthetic from Sydney region reports the marketing site is 'slow' (LCP 5.2s) but only from AU; US and EU are normal.",app
+v1-030,"Marketing analyst asks why this week's revenue dashboard is 'off' vs the BI team's number. Both numbers came from the same model.",data

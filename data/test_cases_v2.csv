@@ -14,3 +14,8 @@ v2-012,"OOMKilled events have spiked on the checkout deployment; node memory uti
 v2-013,"Tail latency on the inventory API has been climbing for 30 minutes; trace breakdown points to Postgres query times.",app,rb_003_api_p99_latency_spike
 v2-014,"Error budget for the auth service has burned 40% in the last hour; 502s from the upstream identity provider.",app,rb_004_5xx_error_surge
 v2-015,"AWS access key found in a public Docker image layer pushed to Docker Hub by an employee account.",security,rb_005_leaked_credentials
+v2-016,"Third-party payments provider Stripe is reporting elevated 5xx and our /api/charge fail rate is 14%. No deploy on our side.",app,
+v2-017,"Datadog from Sydney: LCP 5.2s on marketing site, only AU; US and EU are normal. No deploy.",app,
+v2-018,"4.2GB archive uploaded from internal jump host to personal Dropbox at 03:14 UTC by user dev42@corp.",security,
+v2-019,"Marketing analyst asks why this week's revenue dashboard is off vs BI team. Both pulled from fct_revenue_daily.",data,
+v2-020,"Confluence vendor outage on their status page. Internal services are unaffected.",infra,
